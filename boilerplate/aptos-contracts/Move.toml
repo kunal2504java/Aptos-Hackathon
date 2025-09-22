@@ -1,0 +1,11 @@
+[package]
+name = "omnibets"
+version = "0.0.1"
+
+[dependencies]
+AptosFramework = { local = "../../lib/aptos-framework" }
+AptosStdlib = { local = "../../lib/aptos-stdlib" }
+AptosToken = { local = "../../lib/aptos-token" }
+
+[addresses]
+omnibets = "0x1"
