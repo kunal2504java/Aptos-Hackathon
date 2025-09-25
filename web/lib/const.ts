@@ -1,5 +1,9 @@
-export const GRAPH_URL =
-  "https://api.studio.thegraph.com/query/73364/omnibet-fuji/version/latest";
+// Aptos configuration
+export const APTOS_NETWORK = process.env.NEXT_PUBLIC_APTOS_NETWORK || 'testnet';
+export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '';
+
+// Deprecated GraphQL URL (not used for Aptos)
+// export const GRAPH_URL = "https://api.studio.thegraph.com/query/73364/omnibet-fuji/version/latest";
 
 // Avalanche Fuji Testnet addresses (to be updated after deployment)
 export const USDC_ADDRESS_FUJI_A =

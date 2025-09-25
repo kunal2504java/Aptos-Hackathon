@@ -1,26 +1,36 @@
-import { Zap, Globe, Lock, Coins } from "lucide-react"
+import { Zap, Globe, Lock, Coins, Code, Shield } from "lucide-react"
 
 export default function FeaturesSection() {
   const features = [
     {
+      icon: <Code className="w-8 h-8 mb-4" />,
+      title: "Move Smart Contracts",
+      description: "Built with Move language for maximum security and efficiency. Resource-oriented programming ensures safe and predictable market behavior.",
+    },
+    {
       icon: <Zap className="w-8 h-8 mb-4" />,
       title: "LMSR Strategy",
-      description: "Logarithmic Market Scoring Rule provides efficient price discovery and liquidity for all markets.",
+      description: "Logarithmic Market Scoring Rule provides efficient price discovery and liquidity for all markets on Aptos blockchain.",
     },
     {
       icon: <Globe className="w-8 h-8 mb-4" />,
-      title: "Multichain",
-      description: "Bet on any chain with Reactive Network as our chain aggregator. One platform, all chains.",
+      title: "Aptos Native",
+      description: "Fully integrated with Aptos blockchain. Leverage Aptos's high throughput, low latency, and Move's safety guarantees.",
     },
     {
-      icon: <Lock className="w-8 h-8 mb-4" />,
+      icon: <Shield className="w-8 h-8 mb-4" />,
       title: "Secure & Transparent",
-      description: "All markets are secured by smart contracts with transparent resolution mechanisms.",
+      description: "All markets are secured by Move smart contracts with transparent resolution mechanisms and immutable on-chain records.",
     },
     {
       icon: <Coins className="w-8 h-8 mb-4" />,
       title: "Automated Market Maker",
-      description: "Our AMM ensures there's always liquidity for your bets, no counterparty needed.",
+      description: "Our AMM ensures there's always liquidity for your bets, powered by Aptos's efficient transaction processing.",
+    },
+    {
+      icon: <Lock className="w-8 h-8 mb-4" />,
+      title: "NFT Integration",
+      description: "Unique NFT rewards system with Move-based NFT marketplace and lending capabilities for enhanced gamification.",
     },
   ]
 
@@ -28,7 +38,7 @@ export default function FeaturesSection() {
     <section className="py-8">
       <h2 className="text-2xl font-pixel mb-8 text-center">Why OmniBets?</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {features.map((feature, index) => (
           <div
             key={index}

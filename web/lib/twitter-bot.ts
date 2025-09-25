@@ -1,5 +1,5 @@
 import { TwitterApi } from 'twitter-api-v2';
-import { aptosClient, MODULE_NAMES } from './aptos-client';
+import { MODULE_NAMES } from './aptos-client';
 
 // Twitter API Configuration
 const TWITTER_API_KEY = process.env.TWITTER_API_KEY || '';
@@ -7,6 +7,10 @@ const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET || '';
 const TWITTER_ACCESS_TOKEN = process.env.TWITTER_ACCESS_TOKEN || '';
 const TWITTER_ACCESS_SECRET = process.env.TWITTER_ACCESS_SECRET || '';
 const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN || '';
+
+// Twitter OAuth Configuration (New)
+const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID || '';
+const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET || '';
 
 const twitterClient = new TwitterApi({
   appKey: TWITTER_API_KEY,
@@ -16,6 +20,59 @@ const twitterClient = new TwitterApi({
 });
 
 const twitterBearer = new TwitterApi(TWITTER_BEARER_TOKEN);
+
+// OAuth 2.0 Client for user authentication
+const twitterOAuth2 = new TwitterApi({
+  clientId: TWITTER_CLIENT_ID,
+  clientSecret: TWITTER_CLIENT_SECRET,
+});
+
+// Helper function to call view functions using raw fetch API with rate limiting
+async function callViewFunction(functionName: string, args: any[] = []) {
+  try {
+    const requestBody = {
+      function: functionName,
+      type_arguments: [],
+      arguments: args.map(arg => arg.toString()), // Convert all arguments to strings
+    };
+    
+    const response = await fetch('https://fullnode.testnet.aptoslabs.com/v1/view', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer aptoslabs_eJJWS8wiFGb_Ae2G5Vzscy8XDVXB4qS9p1J6nzAupxez9',
+      },
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (response.status === 429) {
+      console.log("Rate limited, waiting 5 seconds...");
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return callViewFunction(functionName, args);
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, text: ${errorText}`);
+    }
+    
+    const responseText = await response.text();
+    console.log(`Raw response for ${functionName}:`, responseText);
+    
+    try {
+      const data = JSON.parse(responseText);
+      return data;
+    } catch (parseError) {
+      console.error(`JSON parse error for ${functionName}:`, parseError);
+      console.error(`Response text:`, responseText);
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+      throw new Error(`Invalid JSON response: ${errorMessage}`);
+    }
+  } catch (error) {
+    console.error('Raw fetch failed:', error);
+    throw error;
+  }
+}
 
 // Twitter Bot Class
 export class TwitterBettingBot {
@@ -257,26 +314,32 @@ export class TwitterBettingBot {
   // Get market by ID
   async getMarket(marketId: number) {
     try {
-      const payload = {
-        function: `${MODULE_NAMES.PREDICTION_MARKET}::get_market`,
-        arguments: [marketId],
-      };
-
-      const response = await aptosClient.view({ payload });
+      const response = await callViewFunction(`${MODULE_NAMES.PREDICTION_MARKET}::get_market`, [marketId]);
+      
+      // Handle the response structure - it might be wrapped in an array
+      let marketData = response;
+      if (Array.isArray(response) && response.length > 0 && Array.isArray(response[0])) {
+        marketData = response[0];
+      }
+      
+      if (!marketData || typeof marketData !== 'object') {
+        console.error('Invalid market data:', marketData);
+        return null;
+      }
       
       return {
-        id: Number(response[0]),
-        question: response[1],
-        end_time: Number(response[2]),
-        total_staked: Number(response[3]),
-        total_yes: Number(response[4]),
-        total_no: Number(response[5]),
-        state: Number(response[6]),
-        won: response[7],
-        creator: response[8],
-        yes_quantity: Number(response[9]),
-        no_quantity: Number(response[10]),
-        liquidity_initialized: response[11],
+        id: Number(marketData.id || marketId),
+        question: marketData.question || 'Unknown Market',
+        end_time: Number(marketData.end_time || 0),
+        total_staked: Number(marketData.total_staked || 0),
+        total_yes: Number(marketData.total_yes || 0),
+        total_no: Number(marketData.total_no || 0),
+        state: Number(marketData.state || 0),
+        won: marketData.won || false,
+        creator: marketData.creator || 'Unknown',
+        yes_quantity: Number(marketData.yes_quantity || 0),
+        no_quantity: Number(marketData.no_quantity || 0),
+        liquidity_initialized: marketData.liquidity_initialized || false,
       };
     } catch (error) {
       console.error('Error fetching market:', error);
@@ -287,19 +350,32 @@ export class TwitterBettingBot {
   // Get all markets
   async getAllMarkets() {
     try {
-      const countPayload = {
-        function: `${MODULE_NAMES.PREDICTION_MARKET}::get_market_count`,
-        arguments: [],
-      };
-
-      const countResponse = await aptosClient.view({ payload: countPayload });
-      const marketCount = Number(countResponse[0]);
+      const countResponse = await callViewFunction(`${MODULE_NAMES.PREDICTION_MARKET}::get_market_count`, []);
+      
+      // Handle the response structure
+      let marketCount = 0;
+      if (Array.isArray(countResponse) && countResponse.length > 0) {
+        marketCount = Number(countResponse[0]);
+      } else if (typeof countResponse === 'number') {
+        marketCount = countResponse;
+      }
+      
+      console.log(`Found ${marketCount} markets on blockchain`);
       
       const markets = [];
-      for (let i = 1; i <= marketCount; i++) {
-        const market = await this.getMarket(i);
-        if (market) {
-          markets.push(market);
+      // Limit to first 10 markets to avoid rate limiting
+      const maxMarkets = Math.min(marketCount, 10);
+      
+      for (let i = 1; i <= maxMarkets; i++) {
+        try {
+          const market = await this.getMarket(i);
+          if (market) {
+            markets.push(market);
+          }
+          // Add small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`Error fetching market ${i}:`, error);
         }
       }
       

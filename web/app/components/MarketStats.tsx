@@ -6,9 +6,9 @@ interface MarketStatsProps {
   className?: string;
 }
 
-// Helper function to convert Wei to ETH
-function ethToNumber(weiValue: string): number {
-  return parseInt(weiValue) / 1e18;
+// Helper function to convert MockUSDC (6 decimals) to readable format
+function mockUsdcToNumber(mockUsdcValue: string | number): number {
+  return Number(mockUsdcValue) / 1e6; // MockUSDC has 6 decimals
 }
 
 // Helper function to format numbers with commas and 2 decimal places
@@ -26,10 +26,10 @@ export default function MarketStats({
   market,
   className = "",
 }: MarketStatsProps) {
-  // Convert Wei values to numbers
-  const totalYesNum = ethToNumber(market.totalYes.toString());
-  const totalNoNum = ethToNumber(market.totalNo.toString());
-  const totalStaked = ethToNumber(market.totalPriceToken.toString());
+  // Convert MockUSDC values to numbers
+  const totalYesNum = mockUsdcToNumber(market.totalYes);
+  const totalNoNum = mockUsdcToNumber(market.totalNo);
+  const totalStaked = mockUsdcToNumber(market.totalPriceToken);
 
   // Calculate probabilities
   const yesPercentage = Math.round(

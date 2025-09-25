@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import MarketDetails from "../../components/MarketDetails";
 import BettingInterface from "../../components/BettingInterface";
 import MarketStats from "../../components/MarketStats";
+import AIResolutionButton from "../../components/AIResolutionButton";
 import type { Market } from "../../components/MarketPreview";
 import { useEffect, useState } from "react";
 import { fetchMarket } from "@/lib/fetchMarket";
@@ -82,6 +83,27 @@ export default function MarketPage({ params }: { params: { id: string } }) {
             <div className="lg:col-span-2">
               <MarketDetails market={formattedMarket} />
               <MarketStats market={formattedMarket} className="mt-8" />
+              
+              {/* AI Resolution Button - only show for active markets */}
+              {!formattedMarket.resolved && (
+                <div className="mt-8">
+                  <AIResolutionButton 
+                    market={{
+                      id: parseInt(formattedMarket.id) || 0,
+                      question: formattedMarket.question,
+                      endTime: formattedMarket.endTime,
+                      state: formattedMarket.resolved ? 1 : 0
+                    }}
+                    onResolutionComplete={(result) => {
+                      console.log('AI Resolution Complete:', result);
+                      if (result.shouldResolve) {
+                        console.log(`Market ${formattedMarket.id} should be resolved with outcome: ${result.outcome}`);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              
               {/* <LmsrExplainer className="mt-8" /> */}
             </div>
 

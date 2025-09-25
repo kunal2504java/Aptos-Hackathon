@@ -4,7 +4,7 @@ import { Clock, Check, X } from "lucide-react";
 export interface Market {
   id: string | number;
   question: string;
-  endTime: string | number; // timestamp in seconds
+  endTime: string; // ISO date string
   resolved: boolean;
   result: boolean | null;
   totalYes: string | number; // in Wei format
@@ -23,8 +23,8 @@ interface MarketPreviewProps {
 }
 
 export default function MarketPreview({ market }: MarketPreviewProps) {
-  // Convert endTime from seconds to milliseconds
-  const endTimeMs = Number(market.endTime) * 1000;
+  // Convert endTime from ISO string to milliseconds
+  const endTimeMs = new Date(market.endTime).getTime();
   const timeLeft = endTimeMs - Date.now();
   const isEnded = timeLeft <= 0;
 

@@ -1,202 +1,296 @@
-# OmniBets: Cross-Chain Prediction Markets with Reactive Smart Contracts
+# OmniBets: Aptos-Native Prediction Markets with AI Resolution
 
-## Overview
+## 🚀 Overview
 
-OmniBets is a **cross-chain prediction market** that leverages **Reactive Smart Contracts (RSCs)** to seamlessly synchronize market states across multiple blockchains. By incorporating RSCs, OmniBets eliminates the need for manual bridging, wrapped tokens, or centralized oracles, making it a **fully decentralized and reactive cross-chain solution**.
+OmniBets is the **first Aptos-native prediction market** powered by **Move smart contracts** and **LMSR strategy**. Built from the ground up for the Aptos blockchain, OmniBets delivers secure, transparent, and efficient prediction markets with cutting-edge features including AI-powered market resolution, NFT gamification, and lending systems.
 
-**🚀 Now configured for Avalanche Fuji Testnet!**
+**🎯 Now Live on Aptos Testnet!**
 
-## Architecture
+## ✨ Key Features
 
-![image](https://github.com/user-attachments/assets/002e164a-0f84-468b-9637-e6dd2ade5ef8)
+### 🤖 **AI-Powered Market Resolution**
+- **Real-time Analysis**: AI checks external data sources to determine if markets should resolve early
+- **Crypto Price Integration**: Automatic Bitcoin/Ethereum price monitoring via CoinGecko API
+- **Smart Question Parsing**: Extracts price targets and conditions from market questions
+- **Confidence Scoring**: Provides confidence levels and evidence for resolution decisions
+- **One-Click Resolution**: Instant market analysis with detailed reasoning
 
-## 🏗️ **How OmniBets Uses RSCs**
+### 🎮 **NFT Gamification System**
+- **Win Badges**: Mint unique NFTs for successful predictions
+- **Achievement System**: Track win streaks and total victories
+- **Dynamic NFTs**: Metadata updates based on on-chain performance
+- **Rarity System**: Common, Rare, Epic, and Legendary NFT tiers
+- **Visual Collection**: Beautiful NFT gallery with rarity-based styling
 
-1. **Cross-Chain Market Creation** – When a market is created on one chain, RSCs **react** to deploy the same market on connected chains.
-2. **Real-Time Liquidity Updates** – Any bet placed in the main market triggers **automatic liquidity synchronization** across chains.
-3. **Trustless Market Resolution** – RSCs verify results and execute **automated token minting/burning** across chains to distribute rewards.
+### 🏪 **NFT Marketplace & Trading**
+- **Buy & Sell NFTs**: Trade prediction market NFTs with other users
+- **Dynamic Pricing**: NFT values based on rarity and market performance
+- **Real-time Listings**: Live marketplace with instant updates
+- **Consistent Design**: Blue gradient backgrounds with rarity-based borders
+- **Transaction Integration**: Seamless Aptos wallet integration
 
----
+### 💎 **NFT Lending System**
+- **Collateral Betting**: Use NFTs as collateral for prediction market bets
+- **Dynamic Valuation**: NFT values calculated based on type and rarity
+- **Risk Management**: Automatic liquidation if bets are lost
+- **Lending Pool**: Community-driven liquidity for NFT-backed bets
+- **Real-time Tracking**: Monitor active collateral and loan status
 
-## 🚀 **Deployment Guide**
+### 🔗 **Move Smart Contracts**
+- **Resource-Oriented Programming**: Maximum security with Move's compile-time safety
+- **Gas Efficiency**: Optimized for Aptos's high throughput and low latency
+- **Modular Architecture**: Separate contracts for markets, NFTs, and lending
+- **Transparent Resolution**: Immutable on-chain market outcomes
 
-### **Prerequisites**
+## 🚀 Quick Start
 
-Set the following environment variables in your `.env` file or export in terminal:
+### Prerequisites
 
-```bash
-# Avalanche Fuji Testnet Configuration
-SOURCE_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-DESTINATION_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-SOURCE_CHAINID=43113
-DESTINATION_CHAINID=43113
-SERVICE_CONTRACT= <Service Contract Address>
-CALLBACK_CONTRACT= <Callback Contract Address>
-PRIVATE_KEY= <Your private key>
-REACTIVE_RPC= <Reactive RPC URL>
-REACTIVE_PRIVATE_KEY= <Reactive Private Key>
-```
+- **Node.js** 18+ and npm
+- **Aptos CLI** for contract deployment
+- **Petra Wallet** or compatible Aptos wallet
+- **Aptos Testnet tokens** for gas fees
 
-```bash
-cd boilerplate
-```
-
-### **🔧 Getting Fuji Testnet AVAX**
-
-Before deploying, you'll need Fuji testnet AVAX for gas fees:
-
-1. **Get Fuji AVAX from Faucet:**
-   - Visit: https://faucet.avax.network/
-   - Enter your wallet address
-   - Request testnet AVAX
-
-2. **Alternative Faucets:**
-   - https://faucet.quicknode.com/avalanche/fuji
-   - https://core.app/tools/testnet-faucet/?subnet=c&token=c
-
-3. **Verify Balance:**
-   ```bash
-   # Check your balance on Fuji testnet
-   cast balance <YOUR_ADDRESS> --rpc-url https://api.avax-test.network/ext/bc/C/rpc
-   ```
-
-### **1️⃣ Deploy Main Prediction Market (Fuji)**
+### 1️⃣ Clone and Install
 
 ```bash
-forge script src/demos/PredicitionMarket/script/DeployPredictionMarketFuji.s.sol \
-  --rpc-url $SOURCE_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --via-ir
+git clone <repository-url>
+cd OmniBet
+cd web
+npm install
 ```
 
-**Contract Addresses:**
-*Update these in `web/lib/const.ts` after deployment*
+### 2️⃣ Environment Setup
 
-```ts
-MockUSDC deployed to: [TO_BE_UPDATED]
-PredictionMarket deployed to: [TO_BE_UPDATED]
-```
-
-### **2️⃣ Deploy Sub Prediction Market (Fuji)**
+Create `.env.local` in the `web` directory:
 
 ```bash
-forge script src/demos/PredicitionMarket/script/DeploySubPredictionMarketFuji.s.sol \
-  --rpc-url $SOURCE_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast --via-ir
+# Aptos Configuration
+APTOS_RPC_URL=https://fullnode.testnet.aptoslabs.com/v1
+APTOS_API_KEY=your_api_key_here
+
+# Bot Configuration (Optional)
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TWITTER_CLIENT_ID=your_twitter_client_id
+TWITTER_CLIENT_SECRET=your_twitter_client_secret
 ```
 
-**Contract Addresses:**
-*Update these in `web/lib/const.ts` after deployment*
+### 3️⃣ Deploy Smart Contracts
 
-```ts
-MockUSDC deployed to: [TO_BE_UPDATED]
-PredictionMarketFuji deployed to: [TO_BE_UPDATED]
+```bash
+cd boilerplate/aptos-contracts
+
+# Deploy main prediction market
+bash deploy.sh
+
+# Deploy NFT rewards system
+bash deploy_nft_lending.sh
+
+# Initialize marketplace
+bash init_marketplace.ps1
 ```
 
-### **4️⃣ Update Web App Configuration**
+### 4️⃣ Update Contract Addresses
 
-After deploying contracts, update the addresses in `web/lib/const.ts`:
+Update `web/lib/aptos-client.ts` with deployed addresses:
 
 ```typescript
-// Replace placeholder addresses with actual deployed addresses
-export const USDC_ADDRESS_FUJI_A = "0x[YOUR_DEPLOYED_USDC_A]";
-export const USDC_ADDRESS_FUJI_B = "0x[YOUR_DEPLOYED_USDC_B]";
-export const PredictionMarketAddressFujiA = "0x[YOUR_DEPLOYED_MARKET_A]";
-export const PredictionMarketAddressFujiB = "0x[YOUR_DEPLOYED_MARKET_B]";
+export const CONTRACT_ADDRESSES = {
+  PREDICTION_MARKET: "0x[YOUR_DEPLOYED_ADDRESS]",
+  NFT_REWARDS: "0x[YOUR_DEPLOYED_ADDRESS]",
+  NFT_MARKETPLACE: "0x[YOUR_DEPLOYED_ADDRESS]",
+};
 ```
 
-### **5️⃣ Deploy RSC Cross-Chain Aggregator**
-
-```bash
-forge create --legacy \
-  --rpc-url $REACTIVE_RPC \
-  --private-key $REACTIVE_PRIVATE_KEY \
-  --broadcast \
-  src/demos/PredicitionMarket/CrossChainAggregator.sol:CrossChainAggregator \
-  --value 0.01ether \
-  --constructor-args $SYSTEM_CONTRACT_ADDR $SOURCE_CHAINID $DESTINATION_CHAINID \
-  <PredictionMarket_Address_Main> <PredictionMarket_Address_Sub> --via-ir
-```
-
-**Contract Address:**
-
-```ts
-Deployed to: 0x7fca273E558f7C37b1b763Bcf21E2F93F6e150E4
-```
-
-### **6️⃣ Run the Web Application**
+### 5️⃣ Run the Application
 
 ```bash
 cd web
-npm install
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+Visit `http://localhost:3000` and connect your Aptos wallet!
 
-**Note:** Make sure to connect your wallet to Avalanche Fuji testnet in MetaMask or your preferred wallet.
+## 🎯 How to Use
+
+### Creating Markets
+1. **Connect Wallet**: Use Petra or compatible Aptos wallet
+2. **Navigate to Aptos App**: Click "🚀 Launch Aptos App"
+3. **Create Market**: Go to "Create" tab and enter market details
+4. **Set End Time**: Choose resolution date and time
+5. **Deploy**: Market is deployed on Aptos blockchain
+
+### Placing Bets
+1. **Browse Markets**: View active prediction markets
+2. **Select Market**: Click "View Market" on any active market
+3. **Choose Side**: Select YES or NO outcome
+4. **Enter Amount**: Specify bet amount in MockUSDC
+5. **Confirm**: Sign transaction with your wallet
+
+### AI Market Resolution
+1. **Find Active Market**: Look for markets with AI resolution button
+2. **Click "Check Market Resolution"**: AI analyzes current data
+3. **Review Results**: See confidence level, reasoning, and evidence
+4. **Early Resolution**: If AI suggests resolution, market can be resolved early
+
+### NFT System
+1. **Win Predictions**: Successful bets earn NFT rewards
+2. **Mint NFTs**: Go to "Winnings" tab to mint achievement NFTs
+3. **Trade NFTs**: Visit "Marketplace" to buy/sell NFTs
+4. **Use as Collateral**: Go to "Lending" tab to use NFTs for betting
+
+## 🤖 AI Resolution Examples
+
+### Bitcoin Price Markets
+```
+Market: "Will Bitcoin hit 100k by January 1st?"
+Current Price: $105,000
+AI Result: ✅ YES (95% confidence)
+Reasoning: "Bitcoin has reached $105,000, exceeding the target of $100,000."
+```
+
+### Ethereum Markets
+```
+Market: "Will Ethereum reach 5k by December?"
+Current Price: $4,200
+AI Result: ❌ NO (70% confidence)
+Reasoning: "Ethereum is currently at $4,200, below the target of $5,000."
+```
+
+## 🎮 NFT System Details
+
+### NFT Types
+- **Win Badges**: Commemorate successful predictions
+- **Achievement NFTs**: Track milestones and streaks
+- **Dynamic NFTs**: Metadata updates based on performance
+
+### Rarity Levels
+- **Common** (Gray): Basic win badges
+- **Rare** (Blue): Achievement milestones
+- **Epic** (Purple): Win streaks
+- **Legendary** (Yellow): Major achievements
+
+### Marketplace Features
+- **Real-time Trading**: Buy and sell NFTs instantly
+- **Dynamic Pricing**: Values based on rarity and performance
+- **Visual Design**: Consistent blue backgrounds with rarity borders
+- **Transaction History**: Track all NFT trades
+
+## 💎 NFT Lending System
+
+### How It Works
+1. **Select NFT**: Choose from your NFT collection
+2. **Choose Market**: Pick a prediction market to bet on
+3. **Set Amount**: Enter bet amount (≤ NFT value)
+4. **Use Collateral**: NFT is locked as collateral
+5. **Win/Lose**: NFT is returned if you win, liquidated if you lose
+
+### Benefits
+- **No Upfront Capital**: Bet without spending tokens
+- **Higher Leverage**: Use NFT value for larger bets
+- **Risk Management**: Automatic liquidation prevents losses
+- **Community Liquidity**: Shared lending pool
+
+## 🔧 Bot Integration
+
+### Telegram Bot
+- **Private Key Betting**: Secure betting via private keys
+- **Market Commands**: `/markets`, `/bet`, `/create`
+- **Real-time Updates**: Live market information
+- **Wallet Integration**: Connect Aptos wallet
+
+### Twitter Bot
+- **Mention Processing**: Respond to @OmniBetsAptos mentions
+- **Market Updates**: Post market information
+- **Bet Commands**: Process betting commands via tweets
+- **OAuth Integration**: Secure Twitter API access
+
+## 📊 Technical Specifications
+
+### Smart Contracts
+- **Language**: Move
+- **Framework**: Aptos Framework
+- **Standards**: Aptos Token Standard
+- **Gas Optimization**: Efficient resource usage
+
+### Frontend
+- **Framework**: Next.js 14
+- **Styling**: Tailwind CSS
+- **Wallet**: Aptos Wallet Standard
+- **UI Components**: Radix UI
+
+### APIs
+- **Crypto Prices**: CoinGecko API
+- **AI Resolution**: Custom AI engine
+- **Bot APIs**: Telegram Bot API, Twitter API v2
+
+## 🌐 Aptos Testnet Details
+
+- **Chain ID**: 1 (Testnet)
+- **RPC URL**: https://fullnode.testnet.aptoslabs.com/v1
+- **Explorer**: https://explorer.aptoslabs.com/?network=testnet
+- **Native Token**: APT
+- **Faucet**: https://faucet.testnet.aptoslabs.com/
+
+## 🎥 Demo Features
+
+### Live Demo
+- **Market Creation**: Create prediction markets in seconds
+- **AI Resolution**: See AI analyze markets in real-time
+- **NFT Minting**: Watch NFTs get minted for wins
+- **Marketplace Trading**: Trade NFTs with other users
+- **NFT Lending**: Use NFTs as collateral for bets
+
+### Bot Demos
+- **Telegram**: `/markets` to see live markets
+- **Twitter**: @OmniBetsAptos mention for market info
+
+## 🔮 Future Roadmap
+
+### Phase 1 (Current)
+- ✅ Aptos-native prediction markets
+- ✅ AI-powered resolution
+- ✅ NFT gamification
+- ✅ Marketplace trading
+- ✅ NFT lending system
+
+### Phase 2 (Planned)
+- 🔄 Stock market integration
+- 🔄 Sports results API
+- 🔄 News/events resolution
+- 🔄 Cross-chain expansion
+- 🔄 Mobile app
+
+### Phase 3 (Future)
+- 🔄 Advanced AI models
+- 🔄 DeFi integrations
+- 🔄 Governance tokens
+- 🔄 DAO management
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our contributing guidelines and feel free to submit issues and pull requests.
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- **Aptos Labs** for the Move language and blockchain
+- **CoinGecko** for crypto price data
+- **Telegram** and **Twitter** for bot integration
+- **Community** for feedback and contributions
 
 ---
 
-## 🔗 **Avalanche Fuji Testnet Details**
+**Built with ❤️ on Aptos using Move smart contracts**
 
-- **Chain ID:** 43113
-- **RPC URL:** https://api.avax-test.network/ext/bc/C/rpc
-- **Explorer:** https://testnet.snowtrace.io/
-- **Native Token:** AVAX
-- **Faucet:** https://faucet.avax.network/
-
----
-
-### **1️⃣ Market Creation**
-
-- **Origin:** [https://sepolia.etherscan.io/tx/0x9b064f66953311fc10f79009a81d4ff75ff73e9d389a9af0e4a39b1503a7020e](https://sepolia.etherscan.io/tx/0x9b064f66953311fc10f79009a81d4ff75ff73e9d389a9af0e4a39b1503a7020e)
-- **RSC:** [https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/217](https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/217)
-- **Destination:** [https://sepolia.etherscan.io/tx/0xaf29c00ff7f0b17d389b9feefc52b090afd381979ecf7b989ce5aa72c69ed7be](https://sepolia.etherscan.io/tx/0xaf29c00ff7f0b17d389b9feefc52b090afd381979ecf7b989ce5aa72c69ed7be)
-
-### **2️⃣ Buy Shares on Main Market**
-
-- **Origin:** [https://sepolia.etherscan.io/tx/0x5a5930fad304ea303ddcc1bf4efb9c92d1f16ab6552d3e95f98c135f7ac1ed81](https://sepolia.etherscan.io/tx/0x5a5930fad304ea303ddcc1bf4efb9c92d1f16ab6552d3e95f98c135f7ac1ed81)
-- **RSC:** [https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/218](https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/218)
-- **Destination:** [https://sepolia.etherscan.io/tx/0xe182794a95e3ae5f16d5b668ac89da7580ede9dcce441d9791879f9961d8673b](https://sepolia.etherscan.io/tx/0xe182794a95e3ae5f16d5b668ac89da7580ede9dcce441d9791879f9961d8673b)
-
-### **3️⃣ Buy Shares on Sub Market**
-
-- **Origin:** [https://sepolia.etherscan.io/tx/0x5b393539e1711c583b0a4afb9e3601877095113ded9d476b8021d08c59598a15](https://sepolia.etherscan.io/tx/0x5b393539e1711c583b0a4afb9e3601877095113ded9d476b8021d08c59598a15)
-- **RSC:** [https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/219](https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/219)
-- **Destination:** [https://sepolia.etherscan.io/tx/0x772cd9b21b38e2d045fbbb76a5f1f19e4603306f2481123b44b16b0dacfd494e](https://sepolia.etherscan.io/tx/0x772cd9b21b38e2d045fbbb76a5f1f19e4603306f2481123b44b16b0dacfd494e)
-
-### **4️⃣ Resolve Market**
-
-- **Origin:** [https://sepolia.etherscan.io/tx/0x5da984ba458aadea18eafb835c4be1ae45e798a4bc41c5e8f6f99d1434e6cfc8](https://sepolia.etherscan.io/tx/0x5da984ba458aadea18eafb835c4be1ae45e798a4bc41c5e8f6f99d1434e6cfc8)
-- **RSC:** [https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/220](https://kopli.reactscan.net/rvm/0x4b4b30e2e7c6463b03cdffd6c42329d357205334/220)
-- **Destination:** [https://sepolia.etherscan.io/tx/0x06c3e3da14d4140c98289c0a07fbb6f8c976a5376e224d1d738d0f29d3fcbdb1](https://sepolia.etherscan.io/tx/0x06c3e3da14d4140c98289c0a07fbb6f8c976a5376e224d1d738d0f29d3fcbdb1)
-
----
-
-## 📜 **How RSCs Solve This Problem**
-
-Traditional cross-chain markets require **manual bridging** and **centralized oracles**, leading to:
-
-- **Liquidity fragmentation** (traders must move assets across chains).
-- **Long confirmation times** (due to manual or off-chain relays).
-- **High operational risk** (vulnerabilities in centralized bridges/oracles).
-
-By using **Reactive Smart Contracts**, OmniBets:
-
-- **Automates market synchronization** across chains via event-driven transactions.
-- **Ensures instant cross-chain liquidity updates** without user intervention.
-- **Eliminates reliance on third-party oracles**, securing market outcomes in a fully decentralized way.
-
----
-
-## 🎥 **Demo Video**
-
-Check out the demo [here](https://youtu.be/VwuhcRRxz2A)
-
----
-
-## 📝 **Conclusion**
-
-OmniBets demonstrates a **real-world, decentralized, and reactive cross-chain trading experience**, fully powered by **Reactive Smart Contracts**. By automating transactions based on blockchain events, OmniBets delivers a **seamless, trustless, and efficient** prediction market ecosystem across multiple EVM chains.
+*OmniBets: The future of prediction markets is here.*

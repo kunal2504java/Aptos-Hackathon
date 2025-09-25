@@ -2,45 +2,115 @@
 
 import { aptosClient, MODULE_NAMES } from "@/lib/aptos-client";
 import React, { useEffect, useState, useCallback } from "react";
-
-interface AptosWallet {
-  connect(): Promise<void>;
-  disconnect(): Promise<void>;
-  account(): { address: string } | null;
-  isConnected(): boolean;
-}
-
-declare global {
-  interface Window {
-    aptos?: AptosWallet;
-  }
-}
+import { useWallet } from "@/lib/wallet-context";
+import { Button } from "@/components/ui/button";
+import { Loader2, Coins } from "lucide-react";
 
 const AptosUSDCBalance = () => {
+  const { account, connected, signAndSubmitTransaction } = useWallet();
   const [balance, setBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [account, setAccount] = useState<{ address: string } | null>(null);
 
-  useEffect(() => {
-    // Check wallet connection status
-    const checkConnection = () => {
-      if (window.aptos?.isConnected()) {
-        setConnected(true);
-        setAccount(window.aptos?.account() || null);
-      } else {
-        setConnected(false);
-        setAccount(null);
-      }
-    };
+  const handleInitializeMockUSDC = async () => {
+    if (!account) return;
 
-    checkConnection();
+    setIsMinting(true);
+    try {
+      const payload = {
+        type: "entry_function_payload",
+        function: `${MODULE_NAMES.MOCK_USDC}::initialize`,
+        arguments: [],
+        type_arguments: [],
+      };
+
+      console.log("Initializing MockUSDC:", payload);
+
+      const response = await signAndSubmitTransaction(payload);
+      await aptosClient.waitForTransaction({ transactionHash: response.hash });
+
+      alert("MockUSDC initialized successfully!");
+    } catch (error) {
+      console.error("Error initializing MockUSDC:", error);
+      alert("Failed to initialize MockUSDC. Please try again.");
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
+  const handleMintTokens = async () => {
+    if (!account) return;
+
+    setIsMinting(true);
+    try {
+      const mintAmount = 1000000000; // 1000 MockUSDC (6 decimals)
+      
+      const payload = {
+        type: "entry_function_payload",
+        function: `${MODULE_NAMES.MOCK_USDC}::mint`,
+        arguments: [account.address, mintAmount],
+        type_arguments: [],
+      };
+
+      console.log("Minting MockUSDC tokens:", payload);
+
+      const response = await signAndSubmitTransaction(payload);
+      await aptosClient.waitForTransaction({ transactionHash: response.hash });
+
+      // Refresh balance after successful mint
+      await fetchBalance();
+      alert("Successfully minted 1000 MockUSDC tokens!");
+    } catch (error) {
+      console.error("Error minting tokens:", error);
+      alert("Failed to mint tokens. Please try again.");
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
+  // Helper function to call view functions using raw fetch API with rate limiting
+  const callViewFunction = async (functionName: string, args: any[] = []) => {
+    console.log("Calling view function:", functionName);
+    console.log("Arguments:", args);
     
-    // Listen for wallet connection changes
-    const interval = setInterval(checkConnection, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    try {
+      const requestBody = {
+        function: functionName,
+        type_arguments: [],
+        arguments: args,
+      };
+      
+      const response = await fetch('https://fullnode.testnet.aptoslabs.com/v1/view', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer aptoslabs_eJJWS8wiFGb_Ae2G5Vzscy8XDVXB4qS9p1J6nzAupxez9',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Response error text:", errorText);
+        
+        if (response.status === 429) {
+          console.warn("Rate limit exceeded, waiting 5 seconds...");
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+        }
+        
+        throw new Error(`HTTP error! status: ${response.status}, text: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log("Raw fetch response:", data);
+      return data;
+    } catch (error) {
+      console.error("Raw fetch failed:", error);
+      throw error;
+    }
+  };
 
   const fetchBalance = useCallback(async () => {
     if (!account || !connected) {
@@ -52,15 +122,9 @@ const AptosUSDCBalance = () => {
     setError(null);
 
     try {
-      // Call the balance_of function from our MockUSDC contract
-      const payload = {
-        function: `${MODULE_NAMES.MOCK_USDC}::balance_of`,
-        arguments: [account.address],
-      };
+      console.log("Fetching MockUSDC balance for:", account.address);
 
-      const response = await aptosClient.view({
-        payload,
-      });
+      const response = await callViewFunction(`${MODULE_NAMES.MOCK_USDC}::balance_of`, [account.address]);
 
       // Convert from smallest unit to display unit (6 decimals for MockUSDC)
       const balanceValue = Number(response[0]) / Math.pow(10, 6);
@@ -102,12 +166,50 @@ const AptosUSDCBalance = () => {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-        MockUSDC Balance:
+    <div className="flex items-center gap-3 bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-200">
+      <div className="flex items-center gap-2">
+        <Coins className="w-4 h-4 text-blue-600" />
+        <div className="text-sm font-medium text-gray-700">
+          MockUSDC Balance:
+        </div>
+        <div className="text-blue-600 font-bold text-lg">
+          {balance.toFixed(2)} MUSDC
+        </div>
       </div>
-      <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
-        {balance.toFixed(2)} MUSDC
+      <div className="flex gap-2">
+        <Button
+          onClick={handleInitializeMockUSDC}
+          disabled={isMinting}
+          size="sm"
+          className="btn-init"
+        >
+          {isMinting ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Init...
+            </>
+          ) : (
+            "Init"
+          )}
+        </Button>
+        <Button
+          onClick={handleMintTokens}
+          disabled={isMinting}
+          size="sm"
+          className="btn-mint"
+        >
+          {isMinting ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Mint...
+            </>
+          ) : (
+            <>
+              <Coins className="w-3 h-3 mr-1" />
+              Mint
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );

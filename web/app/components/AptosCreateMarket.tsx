@@ -1,56 +1,30 @@
 "use client";
 
-import { aptosClient, MODULE_NAMES } from "@/lib/aptos-client";
-import React, { useState, useEffect } from "react";
+import { aptosClient, MODULE_NAMES, CONTRACT_ADDRESSES } from "@/lib/aptos-client";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Plus } from "lucide-react";
-
-interface AptosWallet {
-  connect(): Promise<void>;
-  disconnect(): Promise<void>;
-  account(): { address: string } | null;
-  isConnected(): boolean;
-  signAndSubmitTransaction(payload: any): Promise<{ hash: string }>;
-}
-
-declare global {
-  interface Window {
-    aptos?: AptosWallet;
-  }
-}
+import { useWallet } from "@/lib/wallet-context";
 
 export default function AptosCreateMarket() {
+  const { account, connected, signAndSubmitTransaction } = useWallet();
   const [question, setQuestion] = useState("");
   const [endTime, setEndTime] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [account, setAccount] = useState<{ address: string } | null>(null);
-
-  useEffect(() => {
-    // Check wallet connection status
-    const checkConnection = () => {
-      if (window.aptos?.isConnected()) {
-        setConnected(true);
-        setAccount(window.aptos?.account() || null);
-      } else {
-        setConnected(false);
-        setAccount(null);
-      }
-    };
-
-    checkConnection();
-    
-    // Listen for wallet connection changes
-    const interval = setInterval(checkConnection, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const [lastCreatedMarketId, setLastCreatedMarketId] = useState<number | null>(null);
 
   const handleCreateMarket = async () => {
-    if (!account || !question || !endTime || !window.aptos) return;
+    if (!account || !question || !endTime) return;
+
+    // Check if contracts are deployed
+    if (CONTRACT_ADDRESSES.PREDICTION_MARKET === "0x1") {
+      alert("Contracts not deployed yet! Please deploy the Move contracts first.\n\nSee the deployment guide in boilerplate/aptos-contracts/README.md");
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -59,19 +33,32 @@ export default function AptosCreateMarket() {
 
       const payload = {
         type: "entry_function_payload",
-        function: `${MODULE_NAMES.PREDICTION_MARKET}::create_market`,
+        function: `${MODULE_NAMES.PREDICTION_MARKET}::create_market_entry`,
         arguments: [question, endTimeTimestamp],
         type_arguments: [],
       };
 
-      const response = await window.aptos.signAndSubmitTransaction(payload);
+      console.log("Transaction payload:", payload);
+      console.log("Module name:", MODULE_NAMES.PREDICTION_MARKET);
+
+      const response = await signAndSubmitTransaction(payload);
       await aptosClient.waitForTransaction({ transactionHash: response.hash });
+
+      // Get the market count to determine the new market ID
+      const countPayload = {
+        function: `${MODULE_NAMES.PREDICTION_MARKET}::get_market_count`,
+        arguments: [],
+      };
+      
+      const countResponse = await aptosClient.view({ payload: countPayload });
+      const newMarketId = Number(countResponse[0]);
+      setLastCreatedMarketId(newMarketId);
 
       // Reset form
       setQuestion("");
       setEndTime("");
       
-      alert("Market created successfully!");
+      alert(`Market created successfully! Market ID: ${newMarketId}`);
     } catch (error) {
       console.error("Error creating market:", error);
       alert("Failed to create market. Please try again.");
@@ -81,26 +68,35 @@ export default function AptosCreateMarket() {
   };
 
   const handleInitializeLiquidity = async () => {
-    if (!account || !window.aptos) return;
+    if (!account) return;
+
+    if (!lastCreatedMarketId) {
+      alert("Please create a market first, or specify a market ID to initialize.");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      // For demo purposes, we'll initialize liquidity for market ID 1
-      // In a real app, you'd get the market ID from the creation response
       const payload = {
         type: "entry_function_payload",
         function: `${MODULE_NAMES.PREDICTION_MARKET}::initialize_liquidity`,
-        arguments: [1], // Market ID 1
+        arguments: [lastCreatedMarketId],
         type_arguments: [],
       };
 
-      const response = await window.aptos.signAndSubmitTransaction(payload);
+      console.log("Initializing liquidity for market ID:", lastCreatedMarketId);
+
+      const response = await signAndSubmitTransaction(payload);
       await aptosClient.waitForTransaction({ transactionHash: response.hash });
 
-      alert("Liquidity initialized successfully!");
+      alert(`Liquidity initialized successfully for Market ID: ${lastCreatedMarketId}`);
     } catch (error) {
       console.error("Error initializing liquidity:", error);
-      alert("Failed to initialize liquidity. Please try again.");
+      if (error instanceof Error && error.message.includes("E_LIQUIDITY_NOT_INITIALIZED")) {
+        alert("This market's liquidity is already initialized. You can only initialize liquidity once per market.");
+      } else {
+        alert("Failed to initialize liquidity. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -156,15 +152,20 @@ export default function AptosCreateMarket() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Initialize Liquidity (Demo)</CardTitle>
+          <CardTitle>Initialize Liquidity</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Initialize liquidity for the first market to enable betting.
+            Initialize liquidity for the newly created market to enable betting.
           </p>
+          {lastCreatedMarketId && (
+            <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">
+              Last created market ID: {lastCreatedMarketId}
+            </p>
+          )}
           <Button
             onClick={handleInitializeLiquidity}
-            disabled={isLoading || !connected}
+            disabled={isLoading || !connected || !lastCreatedMarketId}
             variant="outline"
             className="w-full"
           >
@@ -174,7 +175,7 @@ export default function AptosCreateMarket() {
                 Initializing...
               </>
             ) : (
-              "Initialize Liquidity"
+              `Initialize Liquidity${lastCreatedMarketId ? ` (Market ${lastCreatedMarketId})` : ''}`
             )}
           </Button>
         </CardContent>

@@ -1,14 +1,71 @@
 import { Telegraf } from 'telegraf';
-import { aptosClient, MODULE_NAMES } from './lib/aptos-client';
+import { MODULE_NAMES } from './aptos-client';
 
 // Telegram Bot Configuration
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const WEBAPP_URL = process.env.WEBAPP_URL || 'http://localhost:3000';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://your-domain.com'; // Must be HTTPS for Telegram
 
 const bot = new Telegraf(BOT_TOKEN);
 
 // User session storage (in production, use Redis or database)
-const userSessions = new Map();
+const userSessions = new Map<number, {
+  address: string;
+  privateKey?: string; // Store private key for automatic transactions
+  connectedAt: Date;
+}>();
+
+// Helper function to place bet using private key
+async function placeBetWithPrivateKey(
+  privateKey: string,
+  marketId: number,
+  isYesToken: boolean,
+  amount: number
+): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+  try {
+    const { Aptos, AptosConfig, Network, Ed25519PrivateKey } = await import('@aptos-labs/ts-sdk');
+    
+    const config = new AptosConfig({ network: Network.TESTNET });
+    const aptos = new Aptos(config);
+    
+    // Create account from private key
+    const privateKeyObj = new Ed25519PrivateKey(privateKey);
+    const account = await aptos.deriveAccountFromPrivateKey({ privateKey: privateKeyObj });
+    
+    // Convert amount to smallest unit (6 decimals for MockUSDC)
+    const amountInSmallestUnit = Math.floor(amount * Math.pow(10, 6));
+    
+    // Create transaction payload
+    const payload = {
+      type: "entry_function_payload" as const,
+      function: `${MODULE_NAMES.PREDICTION_MARKET}::buy_tokens`,
+      arguments: [marketId, isYesToken, amountInSmallestUnit],
+      type_arguments: [],
+    };
+    
+    // Submit transaction
+    const transaction = await aptos.signAndSubmitTransaction({
+      signer: account,
+      transaction: payload,
+    });
+    
+    // Wait for transaction to be processed
+    await aptos.waitForTransaction({
+      transactionHash: transaction.hash,
+    });
+    
+    return {
+      success: true,
+      transactionHash: transaction.hash,
+    };
+    
+  } catch (error) {
+    console.error('Error placing bet with private key:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
 
 // Bot Commands
 bot.start((ctx) => {
@@ -25,6 +82,58 @@ bot.start((ctx) => {
   );
 });
 
+bot.command('setkey', async (ctx) => {
+  const args = ctx.message.text.split(' ').slice(1);
+  
+  if (args.length !== 1) {
+    ctx.reply(
+      '❌ Invalid format. Use: /setkey <private_key>\n\n' +
+      '⚠️ **WARNING**: This will store your private key for automatic betting.\n' +
+      'Only use this if you trust this bot and understand the risks.\n\n' +
+      'Example: /setkey 0x1234567890abcdef...'
+    );
+    return;
+  }
+
+  const privateKey = args[0];
+  const userId = ctx.from.id;
+  
+  // Basic validation of private key format
+  if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
+    ctx.reply('❌ Invalid private key format. Private key should start with 0x and be 64 characters long.');
+    return;
+  }
+
+  try {
+    // Test the private key by creating an account
+    const { Aptos, AptosConfig, Network, Ed25519PrivateKey } = await import('@aptos-labs/ts-sdk');
+    
+    const config = new AptosConfig({ network: Network.TESTNET });
+    const aptos = new Aptos(config);
+    
+    const privateKeyObj = new Ed25519PrivateKey(privateKey);
+    const account = await aptos.deriveAccountFromPrivateKey({ privateKey: privateKeyObj });
+    
+    // Store the private key in user session
+    userSessions.set(userId, {
+      address: account.accountAddress.toString(),
+      privateKey: privateKey,
+      connectedAt: new Date(),
+    });
+    
+    ctx.reply(
+      `✅ Private key set successfully!\n\n` +
+      `🔑 Address: ${account.accountAddress.toString()}\n` +
+      `🎯 You can now place bets automatically using /bet command\n\n` +
+      `⚠️ **Security Note**: Your private key is stored in memory only.\n` +
+      `Use /removekey to clear it when done.`
+    );
+    
+  } catch (error) {
+    ctx.reply('❌ Invalid private key. Please check and try again.');
+  }
+});
+
 bot.command('help', (ctx) => {
   ctx.reply(
     `🎯 OmniBets Commands:\n\n` +
@@ -33,13 +142,37 @@ bot.command('help', (ctx) => {
     `➕ /create <question> <end_date> - Create new market\n` +
     `💰 /balance - Check MockUSDC balance\n` +
     `🔗 /connect - Connect Aptos wallet\n` +
-    `📱 /webapp - Open web interface\n\n` +
+    `🔑 /setkey <private_key> - Set private key for auto-betting\n` +
+    `🗑️ /removekey - Remove stored private key\n\n` +
     `Examples:\n` +
     `• /bet 1 yes 10.5\n` +
+    `• /setkey 0x1234567890abcdef...\n` +
     `• /create "Will BTC hit $100k?" "2024-12-31"\n` +
     `• /markets`
   );
 });
+
+bot.command('removekey', async (ctx) => {
+  const userId = ctx.from.id;
+  
+  if (userSessions.has(userId)) {
+    const session = userSessions.get(userId);
+    if (session?.privateKey) {
+      // Remove private key but keep address
+      userSessions.set(userId, {
+        address: session.address,
+        connectedAt: session.connectedAt,
+      });
+      
+      ctx.reply('✅ Private key removed successfully! You can still use manual betting.');
+    } else {
+      ctx.reply('ℹ️ No private key was stored.');
+    }
+  } else {
+    ctx.reply('ℹ️ No wallet connected.');
+  }
+});
+
 
 bot.command('markets', async (ctx) => {
   try {
@@ -96,55 +229,77 @@ bot.command('bet', async (ctx) => {
   if (!userSessions.has(userId)) {
     ctx.reply(
       '🔗 Please connect your Aptos wallet first!\n\n' +
-      'Click the button below to connect:',
-      {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: '🔗 Connect Wallet',
-              url: `${WEBAPP_URL}/aptos?connect=true&user=${userId}`
-            }
-          ]]
-        }
-      }
+      'Use the /setkey command to provide your private key:\n' +
+      '`/setkey 0xYOUR_PRIVATE_KEY`\n\n' +
+      '⚠️ **Security Warning**: Only use testnet private keys!'
     );
     return;
   }
 
   try {
     const userSession = userSessions.get(userId);
-    const isYesToken = side.toLowerCase() === 'yes';
-    const amountInSmallestUnit = Math.floor(betAmount * Math.pow(10, 6));
+    
+    // Validate market exists
+    const markets = await fetchMarkets();
+    const market = markets.find(m => m.id.toString() === marketId);
+    
+    if (!market) {
+      ctx.reply(`❌ Market ${marketId} not found. Use /markets to see available markets.`);
+      return;
+    }
 
-    // Create bet transaction payload
-    const payload = {
-      type: "entry_function_payload",
-      function: `${MODULE_NAMES.PREDICTION_MARKET}::buy_tokens`,
-      arguments: [parseInt(marketId), isYesToken, amountInSmallestUnit],
-      type_arguments: [],
-    };
+    // Check if market is still active
+    const now = new Date();
+    const endTime = new Date(market.end_time * 1000); // Convert Unix timestamp to Date
+    if (now >= endTime) {
+      ctx.reply(`❌ Market ${marketId} has already ended.`);
+      return;
+    }
 
-    // Send transaction for user to sign
-    ctx.reply(
-      `🎲 Placing bet...\n\n` +
-      `Market ID: ${marketId}\n` +
-      `Side: ${side.toUpperCase()}\n` +
-      `Amount: ${betAmount} MockUSDC\n\n` +
-      `Please sign the transaction in your wallet.`,
-      {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: '📱 Open Wallet',
-              url: `${WEBAPP_URL}/aptos?bet=true&market=${marketId}&side=${side}&amount=${betAmount}&user=${userId}`
-            }
-          ]]
-        }
+    // Check if user has private key for automatic betting
+    if (userSession?.privateKey) {
+      // Place bet automatically using private key
+      ctx.reply(`🎲 Placing bet automatically...\n\n📊 Market: ${market.question}\n🎯 Side: ${side.toUpperCase()}\n💰 Amount: ${betAmount} MockUSDC`);
+      
+      const isYesToken = side.toLowerCase() === 'yes';
+      const result = await placeBetWithPrivateKey(
+        userSession.privateKey,
+        parseInt(marketId),
+        isYesToken,
+        betAmount
+      );
+      
+      if (result.success) {
+        ctx.reply(
+          `✅ Bet placed successfully!\n\n` +
+          `📊 Market: ${market.question}\n` +
+          `🎯 Side: ${side.toUpperCase()}\n` +
+          `💰 Amount: ${betAmount} MockUSDC\n` +
+          `🔗 Transaction: ${result.transactionHash}\n\n` +
+          `Your bet has been registered on the platform!`
+        );
+      } else {
+        ctx.reply(
+          `❌ Failed to place bet: ${result.error}\n\n` +
+          `Please try again with a different amount or check your balance.`
+        );
       }
-    );
+    } else {
+      // No private key available
+      ctx.reply(
+        `🎲 Ready to place bet!\n\n` +
+        `📊 Market: ${market.question}\n` +
+        `🎯 Side: ${side.toUpperCase()}\n` +
+        `💰 Amount: ${betAmount} MockUSDC\n` +
+        `⏰ Market ends: ${endTime.toLocaleString()}\n\n` +
+        `To place bets automatically, use:\n` +
+        `\`/setkey 0xYOUR_PRIVATE_KEY\``
+      );
+    }
 
   } catch (error) {
-    ctx.reply('❌ Error placing bet. Please try again.');
+    console.error('Error in bet command:', error);
+    ctx.reply('❌ Error processing bet request. Please try again.');
   }
 });
 
@@ -175,17 +330,9 @@ bot.command('create', async (ctx) => {
   if (!userSessions.has(userId)) {
     ctx.reply(
       '🔗 Please connect your Aptos wallet first!\n\n' +
-      'Click the button below to connect:',
-      {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: '🔗 Connect Wallet',
-              url: `${WEBAPP_URL}/aptos?connect=true&user=${userId}`
-            }
-          ]]
-        }
-      }
+      'Use the /setkey command to provide your private key:\n' +
+      '`/setkey 0xYOUR_PRIVATE_KEY`\n\n' +
+      '⚠️ **Security Warning**: Only use testnet private keys!'
     );
     return;
   }
@@ -197,17 +344,8 @@ bot.command('create', async (ctx) => {
       `➕ Creating market...\n\n` +
       `Question: ${question}\n` +
       `End Date: ${endDate.toLocaleDateString()}\n\n` +
-      `Please sign the transaction in your wallet.`,
-      {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: '📱 Open Wallet',
-              url: `${WEBAPP_URL}/aptos?create=true&question=${encodeURIComponent(question)}&endDate=${endDateStr}&user=${userId}`
-            }
-          ]]
-        }
-      }
+      `To create markets, you need to use the web interface.\n` +
+      `For now, you can place bets using /bet command.`
     );
 
   } catch (error) {
@@ -221,23 +359,19 @@ bot.command('balance', async (ctx) => {
   if (!userSessions.has(userId)) {
     ctx.reply(
       '🔗 Please connect your Aptos wallet first!\n\n' +
-      'Click the button below to connect:',
-      {
-        reply_markup: {
-          inline_keyboard: [[
-            {
-              text: '🔗 Connect Wallet',
-              url: `${WEBAPP_URL}/aptos?connect=true&user=${userId}`
-            }
-          ]]
-        }
-      }
+      'Use the /setkey command to provide your private key:\n' +
+      '`/setkey 0xYOUR_PRIVATE_KEY`\n\n' +
+      '⚠️ **Security Warning**: Only use testnet private keys!'
     );
     return;
   }
 
   try {
     const userSession = userSessions.get(userId);
+    if (!userSession) {
+      ctx.reply('❌ No wallet connected. Use /connect first.');
+      return;
+    }
     const balance = await fetchUserBalance(userSession.address);
     
     ctx.reply(`💰 Your MockUSDC Balance: ${balance.toFixed(2)} MUSDC`);
@@ -251,55 +385,55 @@ bot.command('connect', (ctx) => {
   
   ctx.reply(
     '🔗 Connect your Aptos wallet to start betting!\n\n' +
-    'Click the button below to connect:',
-    {
-      reply_markup: {
-        inline_keyboard: [[
-          {
-            text: '🔗 Connect Wallet',
-            url: `${WEBAPP_URL}/aptos?connect=true&user=${userId}`
-          }
-        ]]
-      }
-    }
+    'Use the /setkey command to provide your private key:\n' +
+    '`/setkey 0xYOUR_PRIVATE_KEY`\n\n' +
+    '⚠️ **Security Warning**: Only use testnet private keys!'
   );
 });
 
-bot.command('webapp', (ctx) => {
-  ctx.reply(
-    '📱 Open OmniBets Web App',
-    {
-      reply_markup: {
-        inline_keyboard: [[
-          {
-            text: '🌐 Open Web App',
-            url: `${WEBAPP_URL}/aptos`
-          }
-        ]]
-      }
+// Webapp command removed - requires HTTPS URL
+
+// Helper function to call view functions using raw fetch API
+async function callViewFunction(functionName: string, args: any[] = []) {
+  try {
+    const requestBody = {
+      function: functionName,
+      type_arguments: [],
+      arguments: args,
+    };
+    
+    const response = await fetch('https://fullnode.testnet.aptoslabs.com/v1/view', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, text: ${errorText}`);
     }
-  );
-});
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Raw fetch failed:', error);
+    throw error;
+  }
+}
 
 // Helper functions
 async function fetchMarkets() {
   try {
-    const countPayload = {
-      function: `${MODULE_NAMES.PREDICTION_MARKET}::get_market_count`,
-      arguments: [],
-    };
-
-    const countResponse = await aptosClient.view({ payload: countPayload });
+    const countResponse = await callViewFunction(`${MODULE_NAMES.PREDICTION_MARKET}::get_market_count`, []);
     const marketCount = Number(countResponse[0]);
     
     const markets = [];
-    for (let i = 1; i <= marketCount; i++) {
-      const marketPayload = {
-        function: `${MODULE_NAMES.PREDICTION_MARKET}::get_market`,
-        arguments: [i],
-      };
-
-      const marketResponse = await aptosClient.view({ payload: marketPayload });
+    const maxMarkets = Math.min(marketCount, 5); // Limit to first 5 markets
+    
+    for (let i = 1; i <= maxMarkets; i++) {
+      const marketResponse = await callViewFunction(`${MODULE_NAMES.PREDICTION_MARKET}::get_market`, [i]);
       
       markets.push({
         id: Number(marketResponse[0]),
@@ -315,6 +449,11 @@ async function fetchMarkets() {
         no_quantity: Number(marketResponse[10]),
         liquidity_initialized: marketResponse[11],
       });
+      
+      // Add delay to avoid rate limiting
+      if (i < maxMarkets) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
     
     return markets;
@@ -326,12 +465,7 @@ async function fetchMarkets() {
 
 async function fetchUserBalance(address: string) {
   try {
-    const payload = {
-      function: `${MODULE_NAMES.MOCK_USDC}::balance_of`,
-      arguments: [address],
-    };
-
-    const response = await aptosClient.view({ payload });
+    const response = await callViewFunction(`${MODULE_NAMES.MOCK_USDC}::balance_of`, [address]);
     return Number(response[0]) / Math.pow(10, 6);
   } catch (error) {
     console.error('Error fetching balance:', error);
@@ -341,7 +475,7 @@ async function fetchUserBalance(address: string) {
 
 // Webhook endpoint for wallet connection
 export function handleWalletConnection(userId: number, address: string) {
-  userSessions.set(userId, { address, connectedAt: Date.now() });
+  userSessions.set(userId, { address, connectedAt: new Date() });
 }
 
 // Error handling

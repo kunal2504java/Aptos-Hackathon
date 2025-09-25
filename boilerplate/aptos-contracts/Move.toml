@@ -3,9 +3,9 @@ name = "omnibets"
 version = "0.0.1"
 
 [dependencies]
-AptosFramework = { local = "../../lib/aptos-framework" }
-AptosStdlib = { local = "../../lib/aptos-stdlib" }
-AptosToken = { local = "../../lib/aptos-token" }
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "mainnet" }
+AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-stdlib", rev = "mainnet" }
+AptosToken = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token", rev = "mainnet" }
 
 [addresses]
-omnibets = "0x1"
+omnibets = "0x33d6e8e9a87668b0a28a7beefda9a3982fb19353828722f6cc2bffdbbd4e6d23"

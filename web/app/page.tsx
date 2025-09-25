@@ -24,12 +24,30 @@ export default function Home() {
             <MarketPreview key={market.id} market={market} />
           ))}
         </div>
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-x-4">
+          <Link
+            href="/aptos"
+            className="inline-block px-6 py-3 bg-blue-600 text-white font-pixel rounded pixelated-border hover:bg-blue-500 transition-colors"
+          >
+            🚀 Launch Aptos App
+          </Link>
           <Link
             href="/markets"
             className="inline-block px-6 py-3 bg-green-600 text-black font-pixel rounded pixelated-border hover:bg-green-500 transition-colors"
           >
-            View All Markets
+            📊 Explore Markets
+          </Link>
+          <Link
+            href="/aptos?tab=marketplace"
+            className="inline-block px-6 py-3 bg-purple-600 text-white font-pixel rounded pixelated-border hover:bg-purple-500 transition-colors"
+          >
+            🏪 NFT Marketplace
+          </Link>
+          <Link
+            href="/aptos?tab=lending"
+            className="inline-block px-6 py-3 bg-orange-600 text-white font-pixel rounded pixelated-border hover:bg-orange-500 transition-colors"
+          >
+            💎 NFT Lending
           </Link>
         </div>
       </section>

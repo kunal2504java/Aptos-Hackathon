@@ -6,8 +6,8 @@ interface MarketDetailsProps {
 }
 
 export default function MarketDetails({ market }: MarketDetailsProps) {
-  // Convert endTime from seconds to milliseconds
-  const endTimeMs = Number(market.endTime) * 1000;
+  // Convert endTime from ISO string to milliseconds
+  const endTimeMs = new Date(market.endTime).getTime();
   const timeLeft = endTimeMs - Date.now();
   const isEnded = timeLeft <= 0;
 

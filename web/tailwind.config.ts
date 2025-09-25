@@ -10,8 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-press-start-2p)"],
-        mono: ["var(--font-vt323)"],
+        sans: ["var(--font-press-start-2p)", "monospace"],
+        mono: ["var(--font-vt323)", "monospace"],
+        pixel: ["var(--font-press-start-2p)", "monospace"],
       },
       colors: {
         "retro-green": "#4ade80",

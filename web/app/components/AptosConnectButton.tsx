@@ -1,87 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Wallet, LogOut } from "lucide-react";
-
-interface AptosWallet {
-  connect(): Promise<void>;
-  disconnect(): Promise<void>;
-  account(): { address: string } | null;
-  isConnected(): boolean;
-}
-
-declare global {
-  interface Window {
-    aptos?: AptosWallet;
-  }
-}
+import { Wallet, LogOut, AlertCircle } from "lucide-react";
+import { useWallet, useWalletDetection } from "@/lib/wallet-context";
 
 export default function ConnectButton() {
-  const [connected, setConnected] = useState(false);
-  const [account, setAccount] = useState<{ address: string } | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Check if wallet is already connected
-    if (window.aptos?.isConnected()) {
-      setConnected(true);
-      setAccount(window.aptos?.account() || null);
-    }
-  }, []);
+  const { account, connected, connecting, connect, disconnect } = useWallet();
+  const { walletInstalled, walletName } = useWalletDetection();
 
   const handleConnect = async () => {
-    if (!window.aptos) {
-      alert("Please install Petra wallet or another Aptos wallet");
-      return;
-    }
-
-    setLoading(true);
     try {
-      await window.aptos.connect();
-      setConnected(true);
-      setAccount(window.aptos.account());
+      await connect();
     } catch (error) {
       console.error("Failed to connect wallet:", error);
-      alert("Failed to connect wallet");
-    } finally {
-      setLoading(false);
+      alert("Failed to connect wallet: " + (error as Error).message);
     }
   };
 
   const handleDisconnect = async () => {
-    if (!window.aptos) return;
-
-    setLoading(true);
     try {
-      await window.aptos.disconnect();
-      setConnected(false);
-      setAccount(null);
+      await disconnect();
     } catch (error) {
       console.error("Failed to disconnect wallet:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
   if (connected && account) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900 rounded-lg">
+      <div className="flex items-center gap-3 bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-200">
+        <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+          <span className="text-sm font-medium text-gray-700">
+            {walletName || 'Petra'}
+          </span>
+          <span className="text-xs font-mono text-gray-500">
             {account.address.slice(0, 6)}...{account.address.slice(-4)}
           </span>
         </div>
         <Button
-          variant="outline"
-          size="sm"
           onClick={handleDisconnect}
-          disabled={loading}
-          className="flex items-center gap-2"
+          className="btn-danger-light"
+          size="sm"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-4 h-4 mr-1" />
           Disconnect
+        </Button>
+      </div>
+    );
+  }
+
+  if (!walletInstalled) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => window.open('https://petra.app/', '_blank')}
+          className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          <AlertCircle className="w-4 h-4" />
+          Install Petra Wallet
         </Button>
       </div>
     );
@@ -90,11 +66,11 @@ export default function ConnectButton() {
   return (
     <Button
       onClick={handleConnect}
-      disabled={loading}
-      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+      disabled={connecting}
+      className="btn-primary"
     >
-      <Wallet className="w-4 h-4" />
-      {loading ? "Connecting..." : "Connect Wallet"}
+      <Wallet className="w-4 h-4 mr-2" />
+      {connecting ? "Connecting..." : "Connect Wallet"}
     </Button>
   );
 }

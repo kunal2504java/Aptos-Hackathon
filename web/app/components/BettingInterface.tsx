@@ -1,24 +1,17 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowRight, Info } from "lucide-react";
 import type { Market } from "../components/MarketPreview";
 import USDCBalance from "./USDCBalance";
+import { useWallet } from "@/lib/wallet-context";
 
-import {
-  PredictionMarketAddressFujiA,
-  PredictionMarketAddressFujiB,
-  PredictionMarketAddressFujiB_ABI,
-  USDC_ADDRESS_FUJI_A,
-  USDC_ADDRESS_FUJI_B,
-} from "@/lib/const";
-import { useAccount } from "wagmi";
-import { client, walletClient } from "@/lib/client";
-import MintandApprove from "./MintandApprove";
+import { CONTRACT_ADDRESS } from "@/lib/const";
+// import MintandApprove from "./MintandApprove"; // TODO: Update for Aptos
 
 interface BettingInterfaceProps {
   market: Market;
@@ -36,12 +29,10 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
   const [yesEstimatedReturn, setYesEstimatedReturn] = useState("0");
   const [noEstimatedReturn, setNoEstimatedReturn] = useState("0");
   const [activeTab, setActiveTab] = useState("yes");
-  const [selectedChain, setSelectedChain] = useState("chainA");
-  const [marketAddress, setMarketAddress] = useState(
-    PredictionMarketAddressFujiA
-  );
-  const [usdcAddress, setUsdcAddress] = useState(USDC_ADDRESS_FUJI_A);
-  const { address } = useAccount();
+  const { account, connected, signAndSubmitTransaction } = useWallet();
+  
+  // TODO: Replace with Aptos wallet integration
+  const contractAddress = CONTRACT_ADDRESS;
 
   // Add refs for the input elements
   const yesInputRef = useRef<HTMLInputElement>(null);
@@ -51,19 +42,7 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
   const totalYesNum = ethToNumber(market.totalYes.toString());
   const totalNoNum = ethToNumber(market.totalNo.toString());
 
-  // Chain-specific data for Avalanche Fuji
-  const chainData = {
-    chainA: {
-      name: "Fuji A",
-      icon: "A",
-      color: "bg-red-400",
-    },
-    chainB: {
-      name: "Fuji B",
-      icon: "B",
-      color: "bg-orange-400",
-    },
-  };
+  // TODO: Add Aptos-specific network configuration if needed
 
   // Handlers for YES and NO inputs
   const handleYesAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,55 +83,63 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
     }
   };
 
-  useEffect(() => {
-    if (selectedChain === "chainA") {
-      setMarketAddress(PredictionMarketAddressFujiA);
-      setUsdcAddress(USDC_ADDRESS_FUJI_A);
-    } else {
-      setMarketAddress(PredictionMarketAddressFujiB);
-      setUsdcAddress(USDC_ADDRESS_FUJI_B);
-    }
-  }, [selectedChain]);
+  // TODO: Add Aptos-specific effects if needed
 
-  // Convert endTime from seconds to milliseconds for timestamp comparison
-  const endTimeMs = Number(market.endTime) * 1000;
+  // Parse endTime (already in ISO format from our transformation)
+  const endTimeMs = new Date(market.endTime).getTime();
   const isDisabled = market.resolved || endTimeMs < Date.now();
 
   // Betting Form Handlers
 
   const handleBet = async (
     amount: number,
-    side: "yes" | "no",
-    marketAddress: string
+    side: "yes" | "no"
   ) => {
-    if (!address) {
-      console.error("No wallet connected");
+    if (!connected || !account) {
+      alert("Please connect your wallet first!");
       return;
     }
 
-    if (!walletClient) {
-      console.error("Wallet client not initialized");
+    if (!contractAddress) {
+      alert("Contract address not configured. Please check your environment variables.");
       return;
     }
 
     try {
-      const tx = await walletClient.writeContract({
-        address: marketAddress as `0x${string}`,
-        abi: PredictionMarketAddressSepoliaB_ABI,
-        functionName: "buy",
-        args: [Number(market.id), side === "yes", BigInt(amount * 1e18)],
-        account: address as `0x${string}`,
-      });
-      await client.waitForTransactionReceipt({ hash: tx });
+      // Convert amount to the appropriate unit (assuming USDC has 6 decimals)
+      const amountInMicroUSDC = Math.floor(amount * 1_000_000);
+      
+      const transaction = {
+        type: "entry_function_payload",
+        function: `${contractAddress}::prediction_market::buy_tokens`,
+        type_arguments: [],
+        arguments: [
+          market.id, // market_id
+          side === "yes", // is_yes_token
+          amountInMicroUSDC.toString(), // amount
+        ],
+      };
 
+      console.log(`Placing ${side.toUpperCase()} bet of ${amount} USDC on market ${market.id}`);
+      console.log("Transaction payload:", transaction);
+      
+      const response = await signAndSubmitTransaction(transaction);
+      console.log("Transaction hash:", response.hash);
+      
+      alert(`Success! Placed ${side.toUpperCase()} bet of ${amount} USDC.\n\nTransaction hash: ${response.hash}`);
+      
       // Reset input field after successful bet
       if (side === "yes") {
         setYesAmount("");
       } else {
         setNoAmount("");
       }
+      
+      // TODO: Refresh market data to show updated totals
+      
     } catch (error) {
       console.error("Error placing bet:", error);
+      alert(`Failed to place bet: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -205,10 +192,10 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
 
           <Button
             className="w-full font-pixel pixelated-border"
-            disabled={!yesAmount || isNaN(Number(yesAmount))}
-            onClick={() => handleBet(Number(yesAmount), "yes", marketAddress)}
+            disabled={!connected || !yesAmount || isNaN(Number(yesAmount))}
+            onClick={() => handleBet(Number(yesAmount), "yes")}
           >
-            Bet on YES <ArrowRight className="ml-2 w-4 h-4" />
+            {!connected ? "Connect Wallet to Bet" : "Bet on YES"} <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </div>
       </TabsContent>
@@ -245,10 +232,10 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
 
           <Button
             className="w-full font-pixel pixelated-border"
-            disabled={!noAmount || isNaN(Number(noAmount))}
-            onClick={() => handleBet(Number(noAmount), "no", marketAddress)}
+            disabled={!connected || !noAmount || isNaN(Number(noAmount))}
+            onClick={() => handleBet(Number(noAmount), "no")}
           >
-            Bet on NO <ArrowRight className="ml-2 w-4 h-4" />
+            {!connected ? "Connect Wallet to Bet" : "Bet on NO"} <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </div>
       </TabsContent>
@@ -260,9 +247,7 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-pixel mb-4">Place Your Bet</h3>
 
-        {!isDisabled && (
-          <USDCBalance usdcAddress={usdcAddress} address={address || ""} />
-        )}
+        {/* TODO: Add Aptos USDC balance display */}
       </div>
 
       {isDisabled ? (
@@ -271,57 +256,16 @@ export default function BettingInterface({ market }: BettingInterfaceProps) {
         </div>
       ) : (
         <div>
-          <div className="mb-6">
-            <h4 className="font-pixel text-sm mb-2">Select Chain</h4>
-            <Tabs defaultValue="chainA" onValueChange={setSelectedChain}>
-              <TabsList className="grid grid-cols-3 mb-4 p-1 bg-gray-700 rounded-lg">
-                {Object.entries(chainData).map(([key, chain]) => (
-                  <TabsTrigger
-                    key={key}
-                    value={key}
-                    className="font-pixel data-[state=active]:bg-gray-600 data-[state=active]:shadow-inner transition-all duration-200"
-                  >
-                    <div className="flex items-center">
-                      <div
-                        className={`w-4 h-4 ${chain.color} flex items-center justify-center text-black text-xs mr-2 rounded-sm`}
-                      >
-                        {chain.icon}
-                      </div>
-                      <span className="hidden sm:inline">{chain.name}</span>
-                    </div>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {Object.keys(chainData).map((key) => (
-                <TabsContent key={key} value={key}>
-                  <div className="bg-gray-700 p-3 rounded-lg mb-4">
-                    <div className="flex items-center font-mono text-sm">
-                      <div
-                        className={`w-5 h-5 ${
-                          chainData[key as keyof typeof chainData].color
-                        } flex items-center justify-center text-black text-xs mr-2 rounded-sm`}
-                      >
-                        {chainData[key as keyof typeof chainData].icon}
-                      </div>
-                      <span>
-                        Betting on{" "}
-                        {chainData[key as keyof typeof chainData].name} Network
-                      </span>
-                    </div>
-                  </div>
-                  <div className="bg-gray-700 p-3 rounded-lg mb-4">
-                    <MintandApprove
-                      address={address || ""}
-                      usdcAddress={usdcAddress}
-                      marketAddress={marketAddress}
-                    />
-                  </div>
-                  <BettingForm />
-                </TabsContent>
-              ))}
-            </Tabs>
+          <div className="bg-gray-700 p-3 rounded-lg mb-4">
+            <div className="flex items-center font-mono text-sm">
+              <div className="w-5 h-5 bg-blue-500 flex items-center justify-center text-black text-xs mr-2 rounded-sm">
+                A
+              </div>
+              <span>Betting on Aptos Testnet</span>
+            </div>
           </div>
+          {/* TODO: Add Aptos wallet connection and token approval UI */}
+          <BettingForm />
         </div>
       )}
 

@@ -1,40 +1,44 @@
 #!/bin/bash
 
-# Aptos OmniBets Deployment Script
-# This script deploys the Move contracts to Aptos testnet
+# Exit on error
+set -e
 
-echo "🚀 Starting Aptos OmniBets deployment..."
+echo "🚀 Deploying Aptos OmniBets contracts..."
 
 # Check if aptos CLI is installed
 if ! command -v aptos &> /dev/null; then
     echo "❌ Aptos CLI not found. Please install it first:"
-    echo "   curl -fsSL https://aptos.dev/scripts/install_cli.py | python3"
+    echo "   Windows: irm https://aptos.dev/scripts/install_cli.py | python"
+    echo "   macOS/Linux: curl -fsSL \"https://aptos.dev/scripts/install_cli.py\" | python3"
     exit 1
 fi
 
-# Set up account (you'll need to create one if it doesn't exist)
-echo "📝 Setting up Aptos account..."
-aptos init --network testnet
+# Check if account is initialized
+if ! aptos account list &> /dev/null; then
+    echo "❌ No Aptos account found. Please initialize first:"
+    echo "   aptos init --network testnet"
+    exit 1
+fi
 
-# Fund the account with testnet APT
-echo "💰 Funding account with testnet APT..."
+# Get account address
+echo "📋 Getting account address..."
+ACCOUNT_ADDRESS=$(aptos account list --json | jq -r '.Result[0].account_address')
+echo "📍 Account address: $ACCOUNT_ADDRESS"
+
+# Fund account if needed
+echo "💰 Checking account balance..."
 aptos account fund-with-faucet --account default
 
-# Compile the Move contracts
-echo "🔨 Compiling Move contracts..."
-aptos move compile
+# Deploy contracts
+echo "📦 Deploying contracts..."
+aptos move publish --named-addresses omnibets=default --assume-yes
 
-# Publish the contracts
-echo "📦 Publishing contracts to Aptos testnet..."
-aptos move publish --profile default
-
-echo "✅ Deployment complete!"
+echo "✅ Contracts deployed successfully!"
 echo ""
-echo "📋 Next steps:"
-echo "1. Update the contract addresses in web/lib/aptos-client.ts"
-echo "2. Run 'npm install' in the web directory"
-echo "3. Start the development server with 'npm run dev'"
-echo "4. Visit http://localhost:3000/aptos to test the application"
+echo "🔧 Next steps:"
+echo "1. Update web/lib/aptos-client.ts with your contract address:"
+echo "   PREDICTION_MARKET: \"$ACCOUNT_ADDRESS\""
+echo "   MOCK_USDC: \"$ACCOUNT_ADDRESS\""
 echo ""
-echo "🔗 View your deployed contracts on Aptos Explorer:"
-echo "https://explorer.aptoslabs.com/?network=testnet"
+echo "2. Restart your development server"
+echo "3. Test market creation!"
